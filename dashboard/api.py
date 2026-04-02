@@ -8,8 +8,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 import requests
 
-# 상위 디렉토리의 Coupang_Rank_Tracker_v1 경로 추가
-tracker_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../Coupang_Rank_Tracker_v1"))
+# 상위 디렉토리 내의 'rank_tracker_engine' 경로 추가 (깃허브/클라우드 배포용)
+tracker_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../rank_tracker_engine"))
 sys.path.insert(0, tracker_dir)
 
 try:
@@ -17,8 +17,8 @@ try:
     from src.rank_tracker import calculate_rank
 except ImportError as e:
     print(f"Import Error: {e}")
-    # 만약 경로가 다르면 직접 지정 시도
-    sys.path.insert(0, os.path.join(os.getcwd(), "Coupang_Rank_Tracker_v1"))
+    # 대체 경로 (프로젝트 루트가 엔진 폴더 자체일 경우)
+    sys.path.insert(0, os.path.join(os.getcwd(), "rank_tracker_engine"))
     from src.scraper import CoupangScraper
     from src.rank_tracker import calculate_rank
 
@@ -49,13 +49,15 @@ async def check_rank(req: RankRequest):
     if not target_id:
         raise HTTPException(status_code=400, detail="올바른 쿠팡 상품 URL이 아닙니다.")
 
-    # 2. Proxy 설정 불러오기
-    proxy_config_path = os.path.join(tracker_dir, "proxy_config.txt")
-    if not os.path.exists(proxy_config_path):
-        raise HTTPException(status_code=500, detail="proxy_config.txt 파일이 없습니다. 프록시 설정을 먼저 진행해주세요.")
-    
-    with open(proxy_config_path, "r", encoding="utf-8") as f:
-        ws_endpoint = f.read().strip()
+    # 2. Proxy 설정 불러오기 (환경변수 우선)
+    ws_endpoint = os.environ.get("PROXY_WS_ENDPOINT")
+    if not ws_endpoint:
+        proxy_config_path = os.path.join(tracker_dir, "proxy_config.txt")
+        if not os.path.exists(proxy_config_path):
+            raise HTTPException(status_code=500, detail="PROXY_WS_ENDPOINT 환경변수나 proxy_config.txt 파일이 없습니다.")
+        
+        with open(proxy_config_path, "r", encoding="utf-8") as f:
+            ws_endpoint = f.read().strip()
 
     # 3. 스크래핑 및 순위 분석
     scraper = CoupangScraper(ws_endpoint=ws_endpoint)
@@ -101,16 +103,18 @@ async def send_telegram(req: TelegramRequest):
     token = req.token
     chat_id = req.chat_id
     
-    # 1. 파일에서 토큰 읽어오기 시도
+    # 1. 환경변수 또는 파일에서 토큰 읽어오기 시도
     import json
     tg_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tg_config.json")
     if not token or not chat_id:
-        if os.path.exists(tg_config_path):
+        token = token or os.environ.get("TG_TOKEN")
+        chat_id = chat_id or os.environ.get("TG_CHAT_ID")
+        if (not token or not chat_id) and os.path.exists(tg_config_path):
             try:
                 with open(tg_config_path, "r", encoding="utf-8") as f:
                     conf = json.load(f)
-                    token = conf.get("token", token)
-                    chat_id = conf.get("chat_id", chat_id)
+                    token = token or conf.get("token")
+                    chat_id = chat_id or conf.get("chat_id")
             except Exception:
                 pass
                 
@@ -166,4 +170,5 @@ if __name__ == "__main__":
     # Windows asyncio policy
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
