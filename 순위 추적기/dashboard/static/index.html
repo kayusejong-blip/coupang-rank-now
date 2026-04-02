@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>쿠팡 랭킹 나우 v2.0 - 대장님의 프리미엄 관리 도구</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+
+<body class="light-mode">
+    <div class="wrapper">
+        <header class="main-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-chart-line"></i>
+                    <h1>랭킹 나우 <span>v2.0</span></h1>
+                </div>
+                <p class="user-greeting">반갑습니다, <strong>대장님</strong>! 오늘도 최고의 성과를 응원합니다.</p>
+            </div>
+            <div class="header-right">
+                <div class="update-log">
+                    <p class="log-title"><i class="fas fa-history"></i> 업데이트 로그</p>
+                    <ul id="updateList">
+                        <li>v2.0: 멀티 태스크 레이아웃 및 라이트 모드 전환</li>
+                        <li>v1.1: 스크래핑 엔진 최적화</li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <main class="content-area">
+            <div class="card table-card">
+                <div class="card-header">
+                    <div class="title-group">
+                        <h2><i class="fas fa-list-check"></i> 순위 추적 리스트</h2>
+                        <span class="subtitle">키워드와 URL을 입력하고 저장 버튼을 누르면 브라우저가 기억합니다.</span>
+                    </div>
+                    <div class="action-group" style="display: flex; gap: 10px;">
+                        <button id="tgSettingsBtn" class="btn btn-secondary" title="텔레그램 설정"><i
+                                class="fas fa-cog"></i></button>
+                        <button id="sendTgBtn" class="btn btn-secondary"><i class="fab fa-telegram-plane"></i> 보고서
+                            전송</button>
+                        <button id="saveAllBtn" class="btn btn-secondary"><i class="fas fa-save"></i> 전체 저장</button>
+                        <button id="runAllBtn" class="btn btn-primary"><i class="fas fa-play-circle"></i> 전체 순위
+                            확인</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="rank-table">
+                        <thead>
+                            <tr>
+                                <th width="40">#</th>
+                                <th width="60">이미지</th>
+                                <th width="180" id="sortKeywordBtn" style="cursor: pointer; user-select: none;"
+                                    title="클릭하여 가나다순 정렬">키워드 <i class="fas fa-sort" style="color:#aaa;"></i></th>
+                                <th width="80">URL</th>
+                                <th width="100" id="sortRankBtn" style="cursor: pointer; user-select: none;"
+                                    title="클릭하여 오름순/내림순 정렬">일반 순위 <i class="fas fa-sort" style="color:#aaa;"></i></th>
+                                <th width="100">광고 순위</th>
+                                <th width="110">상태/배지</th>
+                                <th width="110">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankTableBody">
+                            <!-- JS에서 10개 행 자동 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+                <div style="text-align: center; padding: 15px; border-top: 1px solid var(--border);">
+                    <button id="addRowBtn" class="btn btn-secondary"
+                        style="border-radius: 20px; padding: 8px 30px; font-weight: 600;">
+                        <i class="fas fa-plus"></i> 새로운 키워드 추가하기
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <footer class="main-footer">
+            <p>&copy; 2026 Antigravity Deepmind. Optimized for High Performance.</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="overlay hidden">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <p>쿠팡 분석 엔진 가동 중...</p>
+            <span class="loader-sub">대장님, 잠시만 기다려 주십시오.</span>
+        </div>
+    </div>
+
+    <!-- Telegram Settings Modal -->
+    <div id="tgModal" class="overlay hidden">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3><i class="fab fa-telegram" style="color:#0088cc;"></i> 텔레그램 봇 설정</h3>
+                <button id="closeModalBtn" class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">
+                    BotFather를 통해 발급받은 '봇 토큰'과 알림을 받을 'Chat ID'를 입력해 주세요. (로컬에만 안전하게 저장됩니다.)
+                </p>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px;">Bot
+                        Token</label>
+                    <input type="text" id="tgToken" class="row-input"
+                        placeholder="예: 123456789:ABCdefGHIjklMNOpqrSTUvwxYZ">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px;">Chat ID</label>
+                    <input type="text" id="tgChatId" class="row-input" placeholder="예: 12345678">
+                </div>
+                <button id="saveTgBtn" class="btn btn-primary" style="width:100%; justify-content:center;">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Modal -->
+    <div id="chartModal" class="overlay hidden">
+        <div class="modal-content card" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="chartModalTitle"><i class="fas fa-chart-line"></i> 순위 변동 추이</h3>
+                <button id="closeChartModalBtn" class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px; text-align:center;">
+                    시간에 따른 순수 순위의 변동 궤적입니다. (숫자가 낮을수록 위로 올라갑니다)
+                </p>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="rankChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
