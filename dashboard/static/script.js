@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok && result.success) {
                 updateRow(index, result.data);
             } else {
-                if (!isBatch) alert(result.message || '순위를 찾을 수 없거나 에러가 발생했습니다.');
+                if (!isBatch) alert(result.detail || result.message || '순위를 찾을 수 없거나 에러가 발생했습니다.');
                 updateRowStatus(index, 'FAILED');
             }
         } catch (err) {
